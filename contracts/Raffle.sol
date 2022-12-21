@@ -106,7 +106,11 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
         (bool upkeepNeeded, ) = checkUpkeep('');
 
         if (!upkeepNeeded) {
-            revert Raffle_UpkeepNotNeeded(address(this).balance, s_players.length, uint256(s_raffleState));
+            revert Raffle_UpkeepNotNeeded(
+                address(this).balance,
+                s_players.length,
+                uint256(s_raffleState)
+            );
         }
 
         s_raffleState = RaffleState.CALCULATING;
@@ -124,7 +128,10 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
      * @dev This is the function responsible to pick a winner from the
      * the ones that entered the raffle
      * */
-    function fulfillRandomWords(uint256, /*requestId*/ uint256[] memory randomWords) internal virtual override {
+    function fulfillRandomWords(
+        uint256,
+        /*requestId*/ uint256[] memory randomWords
+    ) internal virtual override {
         uint256 indexOfWinner = randomWords[0] % s_players.length;
         address payable winner = s_players[indexOfWinner];
         s_recentWinner = winner;
@@ -169,5 +176,13 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
 
     function getRequestConfirmations() public pure returns (uint256) {
         return REQUEST_CONFIRMATIONS;
+    }
+
+    function getTimeInterval() public view returns (uint256) {
+        return i_timeInterval;
+    }
+
+    function getVRFCoordinatorV2InterfaceAddress() public view returns (VRFCoordinatorV2Interface) {
+        return i_vrfCoordinator;
     }
 }
