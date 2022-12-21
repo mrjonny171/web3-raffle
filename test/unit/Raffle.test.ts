@@ -28,7 +28,7 @@ import { Raffle, VRFCoordinatorV2Interface } from '../../typechain-types'
               timeInterval = (await raffle.getTimeInterval()).toNumber()
           })
 
-          describe('constructor', async () => {
+          describe('constructor', () => {
               it('sets the vrfCoordinatorV2Interface address correctly', async () => {
                   const vrfV2CoordinatorAddress = await raffle.getVRFCoordinatorV2InterfaceAddress()
                   const entranceFee = await raffle.getEntranceFee()
@@ -41,7 +41,7 @@ import { Raffle, VRFCoordinatorV2Interface } from '../../typechain-types'
               })
           })
 
-          describe('enterRaffle', async () => {
+          describe('enterRaffle', () => {
               it('entrance fee is not enough', async () => {
                   await expect(
                       raffle.enterRaffle({
@@ -83,7 +83,7 @@ import { Raffle, VRFCoordinatorV2Interface } from '../../typechain-types'
               })
           })
 
-          describe('checkUpkeep', async () => {
+          describe('checkUpkeep', () => {
               it('returns false if people have not sent any ETH', async () => {
                   await network.provider.send('evm_increaseTime', [timeInterval + 1])
                   await network.provider.send('evm_mine', [])
@@ -126,6 +126,48 @@ import { Raffle, VRFCoordinatorV2Interface } from '../../typechain-types'
                   const { upkeepNeeded } = await raffle.callStatic.checkUpkeep([])
 
                   assert.equal(upkeepNeeded, true)
+              })
+          })
+
+          describe('performUpkeep', () => {
+              it('returns an error if checkUpkeep is false', async () => {
+                  await raffle.enterRaffle({ value: validEntranceFee })
+
+                  await network.provider.send('evm_increaseTime', [timeInterval - 3])
+                  await network.provider.send('evm_mine', [])
+
+                  await expect(raffle.performUpkeep([])).to.be.revertedWithCustomError(
+                      raffle,
+                      'Raffle_UpkeepNotNeeded'
+                  )
+              })
+
+              it('can only run if checkUpkeep is true', async () => {
+                  await raffle.enterRaffle({ value: validEntranceFee })
+
+                  await network.provider.send('evm_increaseTime', [timeInterval + 1])
+                  await network.provider.send('evm_mine', [])
+
+                  //await expect(raffle.performUpkeep([])).emit(raffle, 'RequestRaffleWinner')
+
+                  const tx = await raffle.performUpkeep([])
+                  assert(tx)
+              })
+              it('updates the raffle state, emits and event and calls the vrf coordinator', async () => {
+                  await raffle.enterRaffle({ value: validEntranceFee })
+
+                  await network.provider.send('evm_increaseTime', [timeInterval + 1])
+                  await network.provider.send('evm_mine', [])
+
+                  const tx = await raffle.performUpkeep([])
+                  const txReceipt = await tx.wait(1)
+                  const raffleState = await raffle.getRaffleState()
+
+                  //@ts-ignore
+                  const requestId = txReceipt.events[1].args.requestId
+
+                  assert(requestId.toNumber() > 0) // event is emited
+                  assert(raffleState == 1)
               })
           })
       })
