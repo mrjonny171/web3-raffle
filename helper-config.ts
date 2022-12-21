@@ -22,7 +22,7 @@ export const networkConfig: networkConfigInfo = {
         blockConfirmations: 6,
         entranceFee: ethers.utils.parseEther('0.01').toString(),
         gasLane: '0x79d3d8832d904592c0bf9818b621522c988bb8b0c05cdc3b15aea1b6e8db0c15',
-        subscriptionId: '',
+        subscriptionId: '0',
         callbackGasLimit: '500000',
         timeInterval: '30',
     },
