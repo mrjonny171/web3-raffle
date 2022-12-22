@@ -90,13 +90,13 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
      */
     function checkUpkeep(
         bytes memory /* checkData */
-    ) public override returns (bool upkeedNeeded, bytes memory /* performData */) {
+    ) public override returns (bool upkeepNeeded, bytes memory /* performData */) {
         bool isOpen = (s_raffleState == RaffleState.OPEN);
         bool timePassed = ((block.timestamp - s_lastTimeStamp) > i_timeInterval);
         bool hasPlayers = s_players.length > 0;
         bool hasBalance = address(this).balance > 0;
 
-        upkeedNeeded = (isOpen && timePassed && hasPlayers && hasBalance);
+        upkeepNeeded = (isOpen && timePassed && hasPlayers && hasBalance);
     }
 
     /**
@@ -184,5 +184,9 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
 
     function getVRFCoordinatorV2InterfaceAddress() public view returns (VRFCoordinatorV2Interface) {
         return i_vrfCoordinator;
+    }
+
+    function getSubscriptionId() public view returns (uint256) {
+        return i_subscriptionId;
     }
 }

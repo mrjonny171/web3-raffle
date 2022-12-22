@@ -3,7 +3,7 @@ import { assert, expect } from 'chai'
 import { BigNumber } from 'ethers'
 import { deployments, ethers, network } from 'hardhat'
 import { developmentChains, networkConfig } from '../../helper-config'
-import { Raffle, VRFCoordinatorV2Interface, VRFCoordinatorV2Mock } from '../../typechain-types'
+import { Raffle, VRFCoordinatorV2Mock } from '../../typechain-types'
 
 !developmentChains.includes(network.name)
     ? describe.skip

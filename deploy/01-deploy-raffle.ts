@@ -3,6 +3,8 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { ethers, network } from 'hardhat'
 import { networkConfig } from '../helper-config'
 import verify from '../utils/verify'
+import { VRFCoordinatorV2Mock } from '../typechain-types'
+import { ContractReceipt, ContractTransaction } from 'ethers'
 
 const FUND_AMOUNT = '1000000000000000000000'
 
@@ -17,10 +19,14 @@ const deployRaffle: DeployFunction = async function (hre: HardhatRuntimeEnvironm
     let vrfCoordinatorV2Address: string, subscriptionId: string // Address of the contract where the random number is generated
 
     if (chainId == 31337) {
-        const vrfCoordinatorV2Mock = await ethers.getContract('VRFCoordinatorV2Mock')
+        const vrfCoordinatorV2Mock: VRFCoordinatorV2Mock = await ethers.getContract(
+            'VRFCoordinatorV2Mock'
+        )
         vrfCoordinatorV2Address = vrfCoordinatorV2Mock.address
-        const transactionResponse = await vrfCoordinatorV2Mock.createSubscription()
-        const transactionReceipt = await transactionResponse.wait()
+        const transactionResponse: ContractTransaction =
+            await vrfCoordinatorV2Mock.createSubscription()
+        const transactionReceipt: ContractReceipt = await transactionResponse.wait(1)
+        //@ts-ignore
         subscriptionId = transactionReceipt.events[0].args.subId
 
         await vrfCoordinatorV2Mock.fundSubscription(subscriptionId, FUND_AMOUNT)
@@ -57,6 +63,15 @@ const deployRaffle: DeployFunction = async function (hre: HardhatRuntimeEnvironm
     if (chainId != 31337 && process.env.ETHERSCAN_API_KEY) {
         log('Verifying contract...')
         await verify(raffle.address, args)
+    }
+
+    if (chainId == 31337) {
+        const vrfCoordinatorV2Mock: VRFCoordinatorV2Mock = await ethers.getContract(
+            'VRFCoordinatorV2Mock'
+        )
+        await vrfCoordinatorV2Mock.addConsumer(subscriptionId, raffle.address)
+        log('adding consumer...')
+        log('Consumer added!')
     }
 }
 
