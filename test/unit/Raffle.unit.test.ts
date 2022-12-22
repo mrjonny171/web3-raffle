@@ -1,17 +1,18 @@
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { assert, expect } from 'chai'
+import { BigNumber } from 'ethers'
 import { deployments, ethers, network } from 'hardhat'
 import { developmentChains, networkConfig } from '../../helper-config'
-import { Raffle, VRFCoordinatorV2Interface } from '../../typechain-types'
+import { Raffle, VRFCoordinatorV2Interface, VRFCoordinatorV2Mock } from '../../typechain-types'
 
 !developmentChains.includes(network.name)
     ? describe.skip
     : describe('Raffle Unit Tests', async () => {
           let raffle: Raffle
           let deployer: SignerWithAddress
-          let vrfV2Coordinator: VRFCoordinatorV2Interface
+          let vrfV2Coordinator: VRFCoordinatorV2Mock
           const chainId = network.config.chainId!
-          let validEntranceFee: string
+          let validEntranceFee: BigNumber
           let timeInterval: number
 
           beforeEach(async () => {
@@ -23,7 +24,7 @@ import { Raffle, VRFCoordinatorV2Interface } from '../../typechain-types'
 
               vrfV2Coordinator = await ethers.getContract('VRFCoordinatorV2Mock', deployer)
 
-              validEntranceFee = await (await raffle.getEntranceFee()).toString()
+              validEntranceFee = await raffle.getEntranceFee()
 
               timeInterval = (await raffle.getTimeInterval()).toNumber()
           })
@@ -153,7 +154,7 @@ import { Raffle, VRFCoordinatorV2Interface } from '../../typechain-types'
                   const tx = await raffle.performUpkeep([])
                   assert(tx)
               })
-              it('updates the raffle state, emits and event and calls the vrf coordinator', async () => {
+              it('updates the raffle state, emits an event and calls the vrf coordinator', async () => {
                   await raffle.enterRaffle({ value: validEntranceFee })
 
                   await network.provider.send('evm_increaseTime', [timeInterval + 1])
@@ -168,6 +169,62 @@ import { Raffle, VRFCoordinatorV2Interface } from '../../typechain-types'
 
                   assert(requestId.toNumber() > 0) // event is emited
                   assert(raffleState == 1)
+              })
+
+              describe('fulfillRandomWords', async () => {
+                  beforeEach(async () => {
+                      await raffle.enterRaffle({ value: validEntranceFee })
+
+                      await network.provider.send('evm_increaseTime', [timeInterval + 1])
+                      await network.provider.send('evm_mine', [])
+                  })
+
+                  it('can only be called after performUpkeep', async () => {
+                      await expect(
+                          vrfV2Coordinator.fulfillRandomWords(0, raffle.address)
+                      ).to.be.revertedWith('nonexistent request')
+                      await expect(
+                          vrfV2Coordinator.fulfillRandomWords(1, raffle.address)
+                      ).to.be.revertedWith('nonexistent request')
+                  })
+                  it('picks a winner, resets the lottery and sends the money to the winner', async () => {
+                      const additionalEntrance = 3
+                      const accounts = await ethers.getSigners()
+                      for (let i = 1; i < additionalEntrance + 1; i++) {
+                          const raffleParticipant = await raffle.connect(accounts[i])
+                          await raffleParticipant.enterRaffle({ value: validEntranceFee })
+                      }
+
+                      const startingTimeStamp = await raffle.getLatestTimestamp()
+
+                      await new Promise(async (resolve, reject) => {
+                          raffle.once('WinnerPicked', async () => {
+                              try {
+                                  console.log('')
+                                  const recentWinner = await raffle.getRecentWinner()
+                                  const raffleState = await raffle.getRaffleState()
+                                  const endingTimeStamp = await raffle.getLatestTimestamp()
+                                  const numPlayers = await raffle.getNumberOfPlayers()
+
+                                  assert.equal(numPlayers.toString(), '0')
+                                  assert.equal(raffleState.toString(), '0')
+                                  assert(endingTimeStamp > startingTimeStamp)
+                                  assert(recentWinner)
+                              } catch (e: any) {
+                                  reject(e)
+                              }
+                              resolve([])
+                          })
+                          const tx = await raffle.performUpkeep([])
+                          const txReceipt = await tx.wait(1)
+
+                          await vrfV2Coordinator.fulfillRandomWords(
+                              //@ts-ignore
+                              txReceipt.events[1].args.requestId,
+                              raffle.address
+                          )
+                      })
+                  })
               })
           })
       })
