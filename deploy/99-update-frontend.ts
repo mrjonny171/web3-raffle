@@ -2,19 +2,11 @@ import { ethers, network } from 'hardhat'
 import fs from 'fs'
 
 const FRONTEND_ADDRESSES_FILE = '../raffle-frontend/constants/contractAddresses.json'
-const FRONTEND_ABI_FILE = '../raffle-frontend/constants/abi.json'
 
 const updateFrontend = async function () {
     if (process.env.UPDATE_FRONTEND) {
         updateContractAddresses()
-        updateAbi()
     }
-}
-
-async function updateAbi() {
-    const ABI_PATH = 'artifacts/contracts/Raffle.sol/Raffle.json'
-    const abi = fs.readFileSync(ABI_PATH, 'utf8')
-    fs.writeFileSync(FRONTEND_ABI_FILE, abi)
 }
 
 async function updateContractAddresses() {
